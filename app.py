@@ -15,6 +15,8 @@ import cv2
 import streamlit as st
 
 from ai_engine import TrafficAnalyzer
+from whatsapp_mock import WhatsAppEnforcementLog, ViolationAlert
+from whatsapp_ui import render_whatsapp_panel
 
 FLAGGED_DIR = "flagged_frames"
 os.makedirs(FLAGGED_DIR, exist_ok=True)
@@ -32,6 +34,9 @@ st.set_page_config(
 # Session state keys
 if "alert_log" not in st.session_state:
     st.session_state.alert_log: list[dict] = []   # {"time": str, "msg": str}
+
+if "whatsapp_log" not in st.session_state:
+    st.session_state.whatsapp_log = WhatsAppEnforcementLog()
 
 if "total_vehicles_final" not in st.session_state:
     st.session_state.total_vehicles_final: int = 0
@@ -247,7 +252,7 @@ existing Solapur ICCC Smart City Command Centre.
 else:
     st.title("🚦 SIMS — Live Command Centre")
 
-    tab1, tab2 = st.tabs(["📹 Live Feed", "🗺️ Network Map"])
+    tab1, tab2, tab3 = st.tabs(["📹 Live Feed", "🗺️ Network Map", "📱 WhatsApp Enforcement"])
 
     with tab1:
         # --- Metric row ---
@@ -351,6 +356,38 @@ else:
                         st.session_state.alert_log.append({"time": ts, "msg": msg})
                     st.session_state.alert_log = st.session_state.alert_log[-10:]
 
+                # WhatsApp Enforcement Mock Integration
+                if metrics.get("parking_violations", 0) > 0 and _new_alerts:
+                    for msg in _new_alerts:
+                        if "Vehicle ID" in msg:
+                            try:
+                                v_id_str = msg.split("Vehicle ID")[1].strip()
+                                # Clean up any trailing punctuation if any
+                                v_id_str = ''.join(c for c in v_id_str if c.isdigit())
+                                v_id = int(v_id_str)
+                            except Exception:
+                                continue
+                            
+                            existing_ids = [a.vehicle_id for a in st.session_state.whatsapp_log.get_all()]
+                            if v_id not in existing_ids:
+                                loc_map = {
+                                    0: ("CAM-047", "Railway Station Road"),
+                                    1: ("CAM-023", "Market Yard"),
+                                    2: ("CAM-001", "Saat Rasta Junction")
+                                }
+                                cam_id, loc_name = loc_map[v_id % 3]
+                                import random
+                                alert = ViolationAlert(
+                                    camera_id=cam_id,
+                                    location_name=loc_name,
+                                    vehicle_id=v_id,
+                                    duration_seconds=random.randint(120, 300),
+                                    confidence=0.85 + (random.random() * 0.1),
+                                    timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                    status="pending"
+                                )
+                                st.session_state.whatsapp_log.add_alert(alert)
+
                 # Render alert feed
                 with alert_placeholder.container():
                     if st.session_state.alert_log:
@@ -452,6 +489,9 @@ else:
 
         last_density = st.session_state.get("last_density", 88.0)
         render_map(last_density)
+
+    with tab3:
+        render_whatsapp_panel(st.session_state.whatsapp_log)
 
         # --- Flagged Frames Gallery ---
         st.markdown("#### Flagged for Active Learning Review")

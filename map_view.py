@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import folium
 import streamlit as st
+import pandas as pd
+from streamlit_folium import st_folium
 
 # ------------------------------------------------------------------
 # Real Solapur junction coordinates
@@ -227,9 +229,6 @@ def render_map(primary_density: float = 88.0) -> None:
     Call this inside a Streamlit tab or container.
     primary_density: live density % from process_frame() metrics.
     """
-    from streamlit_folium import st_folium
-    import pandas as pd
-
     st.markdown("#### Solapur Junction Network — Live Density Map")
     st.caption(
         "Density propagates outward from the primary feed junction (Saat Rasta). "
